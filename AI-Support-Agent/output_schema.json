@@ -1,0 +1,8 @@
+{
+  "type": "object",
+  "properties": {
+    "answer": {"type": "string"},
+    "confidence": {"type": "number"},
+    "source": {"type": "array", "items": {"type": "string"}}
+  }
+}

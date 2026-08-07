@@ -1,0 +1,37 @@
+[
+  {
+    "id": "case-001",
+    "question": "Why can't I see the API credentials tab?",
+    "answer": "The API credentials tab is only visible to users with the Owner or Admin role. Editors and Read-only users do not see this tab because they cannot create API credentials.",
+    "resolution": "Confirmed the user had a Read-only role. Advised them to contact an Admin for API credential creation.",
+    "tags": ["api", "permissions", "roles"]
+  },
+  {
+    "id": "case-002",
+    "question": "How do I rotate my API secret?",
+    "answer": "Go to Settings > API, find the credential, click Regenerate, and confirm. The old secret is invalidated immediately.",
+    "resolution": "Walked the user through regenerating their API credential. New secret was generated successfully.",
+    "tags": ["api", "security"]
+  },
+  {
+    "id": "case-003",
+    "question": "Can I invite someone as an Editor?",
+    "answer": "Yes. Owners and Admins can invite members and assign the Editor role from Settings > Members > Invite member.",
+    "resolution": "Guided the Admin to invite the user as an Editor. Invite email sent successfully.",
+    "tags": ["members", "roles", "invite"]
+  },
+  {
+    "id": "case-004",
+    "question": "How do I upgrade from Starter to Growth?",
+    "answer": "Go to Settings > Billing, select the Growth plan, and confirm. The upgrade takes effect immediately and the difference is prorated.",
+    "resolution": "User upgraded to Growth successfully. New plan reflected in billing dashboard.",
+    "tags": ["billing", "plans"]
+  },
+  {
+    "id": "case-005",
+    "question": "Is my data encrypted at rest?",
+    "answer": "Yes. OrbitDesk encrypts all data at rest using AES-256 and in transit using TLS 1.2 or higher.",
+    "resolution": "Provided security documentation to the user confirming encryption standards.",
+    "tags": ["security", "privacy"]
+  }
+]

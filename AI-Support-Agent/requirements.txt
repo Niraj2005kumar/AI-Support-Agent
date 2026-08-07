@@ -1,0 +1,48 @@
+# ============================================================================
+# OrbitDesk AI Support Agent - Python Dependencies
+# ----------------------------------------------------------------------------
+# This project runs 100% OFFLINE. No cloud AI APIs (OpenAI/Gemini/Claude) are
+# used. All model inference happens locally via Hugging Face Transformers and
+# Sentence Transformers, and vector search runs on a local FAISS index.
+#
+# Target Runtime: Python 3.11+
+#
+# Installation (recommended, inside a virtual environment):
+#   python -m venv venv
+#   venv\Scripts\activate          # Windows
+#   source venv/bin/activate       # macOS / Linux
+#   pip install -r requirements.txt
+# ============================================================================
+
+# --- Agent orchestration ----------------------------------------------------
+langgraph==0.2.60
+langgraph-checkpoint==2.0.22
+
+# --- State management (dict-based, lightweight) -----------------------------
+pydantic==2.10.4
+
+# --- Local LLM (Hugging Face Transformers, offline) -------------------------
+transformers==4.48.1
+torch==2.5.1
+sentencepiece==0.2.0
+safetensors==0.4.5
+accelerate==0.34.2
+
+# --- Embeddings (Sentence Transformers, offline) ----------------------------
+sentence-transformers==3.3.1
+
+# --- FAISS vector database (CPU build) --------------------------------------
+faiss-cpu==1.8.0.post1
+
+# --- Data handling ----------------------------------------------------------
+numpy==1.26.4
+python-dotenv==1.0.1
+
+# --- Developer tooling ------------------------------------------------------
+pytest==8.3.4
+
+# ============================================================================
+# NOTE: The first run downloads the local models from Hugging Face Hub
+# (google/flan-t5-small and sentence-transformers/all-MiniLM-L6-v2) and caches
+# them locally. After that, the system operates fully offline.
+# ============================================================================
