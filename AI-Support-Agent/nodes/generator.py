@@ -23,6 +23,36 @@ from models.llm import generate_answer
 from utils.logger import get_logger
 from utils.prompts import build_generation_prompt
 
+_INCOMPLETE_TAILS = {
+    "if",
+    "and",
+    "or",
+    "but",
+    "because",
+    "when",
+    "while",
+    "since",
+    "then",
+    "therefore",
+    "however",
+}
+
+
+def _looks_incomplete(answer: str) -> bool:
+    """Return True when the generated answer appears truncated or unfinished."""
+    text = answer.strip()
+    if not text:
+        return True
+    if text.endswith((".", "!", "?")):
+        return False
+    lowered = text.lower()
+    if lowered.endswith(tuple(sorted(_INCOMPLETE_TAILS, key=len, reverse=True))):
+        return True
+    words = lowered.split()
+    return len(words) <= 5 and not any(
+        keyword in lowered for keyword in ["owner", "admin", "viewer", "analyst", "credential", "workspace"]
+    )
+
 logger = get_logger(__name__)
 
 
@@ -58,32 +88,23 @@ def generate_answer_for_question(
         logger.error("Generator failed: %s", exc)
         return SafeResponses.NOT_IN_KNOWLEDGE_BASE
 
+    answer = answer.strip()
+
     # Guard against empty / whitespace-only generations.
-    if not answer or not answer.strip():
+    if not answer:
         logger.warning("LLM returned an empty answer.")
         return SafeResponses.NOT_IN_KNOWLEDGE_BASE
 
-    return answer.strip()
+    if _looks_incomplete(answer):
+        logger.warning("LLM returned an incomplete answer; rejecting it.")
+        return SafeResponses.NOT_IN_KNOWLEDGE_BASE
+
+    return answer
 
 
 # LangGraph node signature: takes full state, returns a partial update.
 def run_generator(state: dict) -> dict:
-    """
-    LangGraph generator node.
-
-    Reads ``question`` and ``documents`` from state, generates an answer, and
-    writes it back.
-
-    Parameters
-    ----------
-    state : dict
-        The current graph state.
-
-    Returns
-    -------
-    dict
-        A partial state update containing the generated ``answer``.
-    """
+    logger.info("Running Generator...")
     question = str(state.get("question", ""))
     documents = state.get("documents", []) or []
 

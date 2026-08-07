@@ -44,14 +44,14 @@ def build_pipeline() -> tuple[Any, list[str]]:
     tuple[Any, list[str]]
         A tuple of (compiled graph, list of loaded document filenames).
     """
-    logger.info("Loading knowledge base...")
+    logger.info("Loading Knowledge Base...")
     documents = load_all_documents()
 
     if not documents:
         logger.error("Knowledge base is empty. Nothing to answer from.")
         sys.exit("Knowledge base is empty. Please add documents to knowledge_base/.")
 
-    logger.info("Building vector store...")
+    logger.info("Loading FAISS Index...")
     vector_store = VectorStore(documents)
 
     logger.info("Compiling pipeline graph...")

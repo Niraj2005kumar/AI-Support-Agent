@@ -171,23 +171,9 @@ def build_graph(vector_store: VectorStore) -> Any:
 
 
 def run_agent(graph: Any, question: str) -> dict:
-    """
-    Invoke the compiled graph with a user question and return the final output.
-
-    Parameters
-    ----------
-    graph : Any
-        The compiled LangGraph application.
-    question : str
-        The user's question.
-
-    Returns
-    -------
-    dict
-        The final schema-conforming output dictionary (``raw_output``).
-    """
     from state import initial_state
 
     state = initial_state(question)
     result = graph.invoke(state)
+    logger.info("Completed Successfully.")
     return result.get("raw_output", {})

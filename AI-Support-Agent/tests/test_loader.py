@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import json
 
+from config import Paths
 from utils.loader import _clean_markdown, load_markdown_documents, load_resolved_cases
+from utils.vector_store import VectorStore
 
 
 class TestCleanMarkdown:
@@ -29,8 +31,8 @@ class TestCleanMarkdown:
         assert "\n\n\n" not in cleaned
 
 
-class TestLoadMarkdown(tmp_path_factory):
-    """Markdown directory loading."""
+class TestLoadMarkdown:
+
 
     def test_loads_md_files(self, tmp_path_factory) -> None:
         kb = tmp_path_factory.mktemp("kb")
@@ -43,8 +45,35 @@ class TestLoadMarkdown(tmp_path_factory):
         assert filenames == {"01_test.md", "02_test.md"}
         assert all(d.source_type == "md" for d in docs)
 
+    def test_extracts_yaml_front_matter_metadata(self, tmp_path_factory) -> None:
+        kb = tmp_path_factory.mktemp("kb")
+        (kb / "01_frontmatter.md").write_text(
+            "---\ndocument_id: KB-001\ntitle: OrbitDesk Overview\nupdated: 2026-07-01\nstatus: current\ntags: [overview, workspace]\n---\n\n# Doc\n\nHello world.",
+            encoding="utf-8",
+        )
 
-class TestLoadResolvedCases(tmp_path_factory):
+        docs = load_markdown_documents(kb)
+        assert len(docs) == 1
+        assert docs[0].metadata["document_id"] == "KB-001"
+        assert docs[0].metadata["title"] == "OrbitDesk Overview"
+        assert docs[0].metadata["tags"] == ["overview", "workspace"]
+
+    def test_real_kb_returns_multi_document_results(self) -> None:
+        docs = load_markdown_documents(Paths.KNOWLEDGE_BASE_DIR)
+        assert len(docs) >= 2
+
+        store = VectorStore(docs)
+        results = store.search(
+            "Who can create API credentials and who can invite team members?",
+            k=3,
+        )
+        assert len(results) >= 2
+        filenames = {result["filename"] for result in results}
+        assert any("02_roles_and_permissions.md" in name for name in filenames)
+        assert any("05_api_credentials.md" in name for name in filenames)
+
+
+class TestLoadResolvedCases:
     """Resolved cases JSON loading."""
 
     def test_loads_cases(self, tmp_path_factory) -> None:

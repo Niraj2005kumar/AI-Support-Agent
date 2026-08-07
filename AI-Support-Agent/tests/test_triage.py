@@ -24,6 +24,7 @@ class TestTriageAnswerable:
         "question",
         [
             "Can a read-only user create API credentials?",
+            "Can a viewer create API credentials?",
             "What roles and permissions does OrbitDesk have?",
             "How do I regenerate my API key?",
             "Who can invite team members to the workspace?",
@@ -55,7 +56,7 @@ class TestTriageClarification:
 
     @pytest.mark.parametrize(
         "question",
-        ["hi", "?", "help", ""],
+        ["hi", "?", "help", "", "My sync is not working."],
     )
     def test_vague_questions_need_clarification(self, question: str) -> None:
         decision = triage_question(question)

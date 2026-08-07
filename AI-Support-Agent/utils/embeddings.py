@@ -51,12 +51,8 @@ def get_embedding_model() -> SentenceTransformer:
     """
     global _model  # noqa: PLW0603
     if _model is None:
-        logger.info(
-            "Loading local embedding model '%s' (this may take a moment)...",
-            Models.EMBEDDING_MODEL,
-        )
+        logger.info("Loading Embeddings...")
         _model = SentenceTransformer(Models.EMBEDDING_MODEL, device=Models.DEVICE)
-        logger.info("Embedding model loaded on device '%s'.", Models.DEVICE)
     return _model
 
 

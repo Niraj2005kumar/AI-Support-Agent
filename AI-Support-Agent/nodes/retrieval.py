@@ -68,26 +68,7 @@ def retrieve_documents(
 
 # LangGraph node signature: takes full state, returns a partial update.
 def run_retrieval(state: dict) -> dict:
-    """
-    LangGraph retrieval node.
-
-    Reads the question from state, retrieves documents from the injected
-    vector store, and writes them back to state (along with source filenames).
-
-    The ``vector_store`` is expected to be attached to the state under the
-    private key ``"__vector_store"`` by the graph builder, so it is not part
-    of the public schema.
-
-    Parameters
-    ----------
-    state : dict
-        The current graph state.
-
-    Returns
-    -------
-    dict
-        A partial state update with retrieved documents and sources.
-    """
+    logger.info("Running Retrieval...")
     question = str(state.get("question", ""))
     vector_store: VectorStore | None = state.get("__vector_store")
 

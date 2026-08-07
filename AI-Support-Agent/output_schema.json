@@ -1,8 +1,19 @@
 {
   "type": "object",
   "properties": {
+    "question": {"type": "string"},
     "answer": {"type": "string"},
-    "confidence": {"type": "number"},
-    "source": {"type": "array", "items": {"type": "string"}}
-  }
+    "sources": {"type": "array", "items": {"type": "string"}},
+    "verification": {"type": "string"},
+    "confidence": {"type": "string"},
+    "status": {"type": "string"}
+  },
+  "required": [
+    "question",
+    "answer",
+    "sources",
+    "verification",
+    "confidence",
+    "status"
+  ]
 }

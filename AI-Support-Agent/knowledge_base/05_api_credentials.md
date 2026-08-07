@@ -1,46 +1,38 @@
+---
+document_id: KB-005
+title: API Credentials
+updated: 2026-07-18
+status: current
+tags: [api, credentials, tokens, permissions, security]
+---
+
 # API Credentials
 
-## Overview
+OrbitDesk uses workspace API credentials for server-to-server integrations. Only Owners and Admins can create or revoke credentials. Analysts and Viewers cannot create API credentials.
 
-OrbitDesk provides a REST API for programmatically managing tickets, workspace
-settings, and reporting. To authenticate with the API, you need a set of
-workspace API credentials: an **API key** and an **API secret**.
+## Creating a Credential
 
-## Who Can Create API Credentials?
+An Owner or Admin can create a credential from **Settings > Developer > API credentials**. The secret is shown once at creation and cannot be revealed again. If the secret is lost, revoke the credential and create a replacement.
 
-**Only users with the Owner or Admin role can create workspace API
-credentials.**
+Each credential has:
 
-- Editors **cannot** create API credentials.
-- Read-only users **cannot** create API credentials.
+- A display name
+- One or more scopes
+- A creation timestamp
+- An optional expiration date
+- A last-used timestamp
 
-## Creating API Credentials
+## Scope Guidance
 
-1. Go to **Settings → API**.
-2. Click **Create credential**.
-3. Give the credential a name (e.g., "Production server").
-4. OrbitDesk generates an API key and API secret.
+Choose the narrowest scopes required by the integration. A credential with `dashboards:read` cannot create or edit dashboards. Creating a credential does not grant access beyond the permissions represented by its scopes.
 
-> **Important**: The API secret is shown only once. If you lose it, you must
-> regenerate the credential.
+## Security Rules
 
-## Regenerating Credentials
+- Never ask a user to paste a credential secret into chat, logs or a recording.
+- Never store a secret in source control.
+- Revoke a credential immediately if exposure is suspected.
+- Credential secrets cannot be recovered by support.
 
-To regenerate a credential:
+## Legacy Personal Tokens
 
-1. Go to **Settings → API**.
-2. Find the credential you wish to rotate.
-3. Click **Regenerate**.
-4. Confirm the action. The old secret is invalidated immediately.
-
-## Revoking Credentials
-
-To revoke a credential, click **Revoke** on the credential. This immediately
-invalidates the key and secret, and any requests using them will fail.
-
-## Security Best Practices
-
-- Store the API secret in a secure vault; never commit it to source control.
-- Rotate credentials regularly.
-- Use workspace-scoped credentials rather than sharing personal ones.
-- Revoke unused credentials promptly.
+Legacy personal API tokens were removed in OrbitDesk version 4.0. Guidance that tells an Analyst to create a token from **Profile > Personal token** is obsolete and must not be followed. Use a workspace credential created by an Owner or Admin instead.

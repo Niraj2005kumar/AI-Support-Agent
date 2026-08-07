@@ -69,6 +69,21 @@ of a guess.
 Shapes the final state into the schema-conforming JSON output, computing
 confidence level and final status.
 
+## Runtime Flow (Mermaid)
+
+```mermaid
+flowchart TD
+    A[User Question] --> B[Triage]
+    B -->|Answerable| C[Retrieval]
+    B -->|Clarification / Out of Scope / Escalation| D[Formatter]
+    C --> E[Generator]
+    E --> F[Verifier]
+    F -->|Passed| D
+    F -->|Failed + retries left| E
+    F -->|Failed / no retries| D
+    D --> G[Final JSON Output]
+```
+
 ---
 
 ## Example

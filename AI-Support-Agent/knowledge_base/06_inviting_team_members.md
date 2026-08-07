@@ -1,38 +1,38 @@
-# Inviting Team Members
+---
+document_id: KB-006
+title: Connections and Data Refreshes
+updated: 2026-07-11
+status: current
+tags: [connections, sync, refresh, data, troubleshooting]
+---
 
-## Overview
+# Connections and Data Refreshes
 
-Workspace Owners and Admins can invite new members to a workspace. Invited
-members receive an email with a link to join.
+OrbitDesk dashboards may depend on one or more data connections. Owners and Admins can create and edit connections. Analysts can view non-secret settings and start a manual refresh when the connection allows it.
 
-## Who Can Invite Members?
+## Connection States
 
-Only users with the **Owner** or **Admin** role can invite team members.
+- **Active:** Available for queries and scheduled refreshes.
+- **Refreshing:** A refresh is currently running.
+- **Reauthorization required:** The external authorization has expired or been revoked.
+- **Disabled:** An Owner or Admin has disabled the connection.
+- **Error:** The most recent refresh failed.
 
-- Editors **cannot** invite members.
-- Read-only users **cannot** invite members.
+## Refresh Behaviour
 
-## How to Invite a Member
+Only one refresh can run for a connection at a time. A second request returns `refresh_already_running`. Scheduled exports wait up to 15 minutes for required refreshes. If a refresh takes longer, the export run ends with `source_refresh_timeout` even if the refresh later succeeds.
 
-1. Go to **Settings → Members**.
-2. Click **Invite member**.
-3. Enter the person's email address.
-4. Choose a role: Admin, Editor, or Read-only.
-5. Click **Send invite**.
+## Troubleshooting
 
-The invite email contains a secure link that expires after **7 days**. If the
-link expires, you can resend the invite from the Members page.
+The phrase “sync is not working” is not specific enough to diagnose a connection problem. Ask for:
 
-## Role Assignment
+- Workspace ID
+- Connection name or ID
+- Current connection state
+- Last successful refresh time
+- Latest error code
+- Whether manual and scheduled refreshes are both affected
 
-When inviting, you assign the new member's role:
+Do not ask for database passwords, OAuth tokens or API secrets.
 
-- **Admin**: Full management of members, roles, and settings.
-- **Editor**: Can create and edit tickets and knowledge base articles.
-- **Read-only**: Can view tickets and reports only.
-
-## Removing Members
-
-Owners and Admins can remove members from the Members page. Removing a member
-revokes their access to the workspace immediately. The Owner cannot be
-removed.
+For `reauthorization_required`, an Owner or Admin must reconnect the data source. For repeated `connector_internal_error` failures, escalate with the connection ID, refresh job IDs and timestamps after two failed attempts.

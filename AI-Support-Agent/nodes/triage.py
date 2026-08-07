@@ -93,12 +93,20 @@ _DOMAIN_KEYWORDS: list[str] = [
     "api",
     "credential",
     "role",
+    "roles",
     "permission",
+    "permissions",
     "admin",
     "owner",
+    "analyst",
+    "viewer",
     "read-only",
     "editor",
     "workspace",
+    "dashboard",
+    "connection",
+    "schedule",
+    "export",
     "billing",
     "subscription",
     "plan",
@@ -112,7 +120,9 @@ _DOMAIN_KEYWORDS: list[str] = [
     "indexing",
     "outage",
     "invite",
+    "inviting",
     "member",
+    "members",
     "team",
 ]
 
@@ -204,6 +214,17 @@ def _classify(question: str) -> TriageDecision:
             ),
         )
 
+    if "sync" in q and not any(kw in q for kw in ["slack", "salesforce", "zendesk"]):
+        logger.info("Triage -> Clarification Required (vague sync query).")
+        return TriageDecision(
+            label=TriageLabel.CLARIFICATION_REQUIRED,
+            reason="Question references sync but is too vague.",
+            follow_up_question=(
+                "Could you please specify which sync integration you are referring to "
+                "(e.g., Slack sync, Salesforce sync, or Zendesk sync)?"
+            ),
+        )
+
     # 4. Domain check: does the question reference an OrbitDesk topic?
     if _contains_any(q, _DOMAIN_KEYWORDS):
         logger.info("Triage -> Answerable (domain keyword match).")
@@ -259,22 +280,7 @@ def triage_question(question: str) -> TriageDecision:
 
 # LangGraph node signature: takes full state, returns a partial update.
 def run_triage(state: dict) -> dict:
-    """
-    LangGraph triage node.
-
-    Reads ``state["question"]``, classifies it, and writes the triage results
-    back into the state.
-
-    Parameters
-    ----------
-    state : dict
-        The current graph state (must contain ``question``).
-
-    Returns
-    -------
-    dict
-        A partial state update with triage fields populated.
-    """
+    logger.info("Running Triage...")
     question = str(state.get("question", ""))
     decision = triage_question(question)
 

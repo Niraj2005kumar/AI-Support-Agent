@@ -1,36 +1,50 @@
-# Billing and Plans
+---
+document_id: KB-004
+title: Scheduled Exports
+updated: 2026-07-15
+status: current
+tags: [exports, schedule, delivery, email, storage, troubleshooting]
+---
 
-## Subscription Plans
+# Scheduled Exports
 
-OrbitDesk offers three plans:
+OrbitDesk can render a dashboard as PDF or CSV on a recurring or one-time schedule. Analysts, Admins and Owners can create schedules. Viewers cannot create or edit schedules.
 
-- **Starter**: 5 team members, 500 tickets/month, email support.
-- **Growth**: 20 team members, unlimited tickets, priority support.
-- **Enterprise**: Unlimited members, SSO, advanced security, dedicated support.
+## Schedule States
 
-## How Billing Works
+- **Active:** Eligible to run at the next scheduled time.
+- **Paused:** Will not run until resumed.
+- **Needs attention:** A required dashboard, connection or destination is unavailable.
+- **Running:** Rendering or delivery is in progress.
 
-Billing is **per workspace** and based on the selected plan. Charges are billed
-monthly or annually (annual billing receives a 20% discount). You can upgrade
-or downgrade your plan at any time from **Settings → Billing**.
+## Run Sequence
 
-## Payment Methods
+At the scheduled time, OrbitDesk performs these steps:
 
-We accept all major credit and debit cards, PayPal, and invoice billing for
-Enterprise plans. Payment details are managed securely and never stored on our
-servers.
+1. Confirms that the schedule is active.
+2. Confirms that the dashboard still exists and the schedule owner still has access.
+3. Waits for required data-source refreshes for up to 15 minutes.
+4. Renders the requested format.
+5. Delivers the file to the configured email or storage destination.
 
-## Refunds
+## Troubleshooting a Missed Export
 
-Refunds are handled by our billing team on a case-by-case basis. If you believe
-you were charged incorrectly, please contact billing@orbitdesk.example with
-your invoice number.
+Check the following in order:
 
-## Changing Plans
+1. Confirm the schedule state and next-run time.
+2. If the workspace timezone recently changed, follow `KB-003` and resave the schedule.
+3. Open **Schedule > Run history** and note the latest run status and error code.
+4. Confirm that the dashboard exists and that the schedule owner can still open it.
+5. Confirm that all required connections are active.
+6. Confirm that the destination is verified and enabled.
 
-- **Upgrading**: Takes effect immediately; you are charged the prorated
-  difference.
-- **Downgrading**: Takes effect at the end of the current billing cycle.
+## Common Error Codes
 
-For urgent billing disputes or refunds, please contact human support — this is
-escalated to the billing team.
+- `source_refresh_timeout`: A required connection did not finish refreshing within 15 minutes. The export is not retried automatically.
+- `destination_unverified`: Delivery is blocked until the destination is verified.
+- `owner_access_revoked`: The schedule owner no longer has access to the dashboard.
+- `render_failed`: Rendering failed after the data checks completed.
+
+Use **Run now** after correcting the cause. A manual run does not alter the recurring schedule's next-run time.
+
+Escalate after two consecutive `render_failed` events for the same dashboard. Include the schedule ID, dashboard ID, run IDs and timestamps. Never include exported customer data in an escalation note.

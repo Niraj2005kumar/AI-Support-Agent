@@ -26,6 +26,7 @@ counter to decide whether to re-run generation or fall back to a safe response
 
 from __future__ import annotations
 
+import json
 import re
 
 from config import Verification
@@ -138,6 +139,131 @@ def _llm_verdict(question: str, answer: str, documents: list[dict]) -> bool:
     return "PASS" in verdict and "FAIL" not in verdict
 
 
+def _answer_terms(answer: str) -> set[str]:
+    """Return significant answer terms without stopwords or short fragments."""
+    return {
+        word
+        for word in re.findall(r"[a-z][a-z0-9-]{2,}", answer.lower())
+        if len(word) > 2
+    }
+
+
+def _unsupported_terms(answer: str, documents: list[dict]) -> list[str]:
+    """Return answer terms not supported by the retrieved context."""
+    context_terms = _context_terms(documents)
+    answer_terms = _answer_terms(answer)
+    if not answer_terms:
+        return []
+    unsupported = sorted(term for term in answer_terms if term not in context_terms)
+    return unsupported
+
+
+def compile_detailed_validation(
+    question: str,
+    answer: str,
+    documents: list[dict],
+    sources: list[str] | None = None,
+) -> tuple[bool, str]:
+    """
+    Perform a multi-check validation on the generated answer.
+
+    Returns a tuple of (overall_passed, checklist_report_string).
+    """
+    checklist: list[str] = []
+    overall_passed = True
+    sources = list(sources or [])
+
+    is_non_empty = bool(answer and answer.strip())
+    if not is_non_empty:
+        overall_passed = False
+    checklist.append(f"- Empty Answers Check: {'PASSED' if is_non_empty else 'FAILED'}")
+
+    has_sources = bool(sources)
+    if not has_sources:
+        overall_passed = False
+    checklist.append(
+        f"- Source References Check: {'PASSED' if has_sources else 'FAILED'} "
+        f"({len(sources)} source(s) referenced)"
+    )
+
+    has_required_fields = bool(question and answer and sources)
+    if not has_required_fields:
+        overall_passed = False
+    checklist.append(
+        "- Runtime Output Schema Check: "
+        f"{'PASSED' if has_required_fields else 'FAILED'}"
+    )
+
+    support = _keyword_support(answer, documents)
+    unsupported = _unsupported_terms(answer, documents)
+    evidence_passed = support >= 0.35
+    llm_checked = False
+    llm_passed = False
+
+    if not evidence_passed and support >= 0.15:
+        llm_checked = True
+        llm_passed = _llm_verdict(question, answer, documents)
+        if llm_passed:
+            evidence_passed = True
+
+    if unsupported and support < 0.5:
+        evidence_passed = False
+        overall_passed = False
+
+    if not evidence_passed:
+        overall_passed = False
+
+    if unsupported:
+        checklist.append(
+            f"- Unsupported Claims Check: FAILED (unverified terms: {', '.join(unsupported[:8])})"
+        )
+    else:
+        checklist.append("- Unsupported Claims Check: PASSED")
+
+    evidence_msg = (
+        f"PASSED (Lexical overlap: {support:.2f})"
+        if evidence_passed and not llm_checked
+        else (
+            f"PASSED (LLM verdict PASSED, Lexical overlap: {support:.2f})"
+            if evidence_passed and llm_passed
+            else (
+                f"FAILED (Lexical overlap: {support:.2f}, LLM verdict: FAILED)"
+                if llm_checked
+                else f"FAILED (Lexical overlap: {support:.2f} is too low)"
+            )
+        )
+    )
+    checklist.append(f"- Evidence Support & Hallucination Check: {evidence_msg}")
+
+    has_valid_scores = True
+    if documents:
+        has_valid_scores = all(
+            "score" in doc or hasattr(doc, "score") for doc in documents
+        )
+    if not has_valid_scores:
+        overall_passed = False
+    checklist.append(f"- Confidence Score Check: {'PASSED' if has_valid_scores else 'FAILED'}")
+
+    try:
+        dummy = {
+            "question": question,
+            "answer": answer,
+            "sources": sources,
+            "verification": "Passed" if overall_passed else "Failed",
+            "confidence": "Low",
+            "status": "Success" if overall_passed else "Failed",
+        }
+        json.dumps(dummy)
+        json_valid = True
+    except Exception:
+        json_valid = False
+        overall_passed = False
+    checklist.append(f"- JSON Validity Check: {'PASSED' if json_valid else 'FAILED'}")
+
+    report = "\n".join(checklist)
+    return overall_passed, report
+
+
 def verify_answer(
     question: str,
     answer: str,
@@ -164,58 +290,36 @@ def verify_answer(
     if not answer:
         return False, "Empty answer."
 
-    # Fast heuristic: require meaningful lexical overlap with the context.
-    support = _keyword_support(answer, documents)
-    logger.info("Keyword support ratio: %.2f", support)
+    sources = []
+    for d in documents:
+        if isinstance(d, dict):
+            sources.append(d.get("filename", "unknown"))
+        else:
+            sources.append(getattr(d, "filename", "unknown"))
 
-    if support >= 0.35:
-        return True, f"Lexical support ratio {support:.2f} >= 0.35."
-
-    # Inconclusive around the band -> run the LLM verdict for a final call.
-    if support >= 0.15:
-        passed = _llm_verdict(question, answer, documents)
-        if passed:
-            return True, "LLM verdict PASSED."
-        return False, "LLM verdict FAILED."
-    else:
-        return False, f"Answer has too little support ({support:.2f})."
+    return compile_detailed_validation(question, answer, documents, sources)
 
 
 # LangGraph node signature: takes full state, returns a partial update.
 def run_verifier(state: dict) -> dict:
-    """
-    LangGraph verifier node.
-
-    Validates the generated ``answer`` against the ``documents`` in state.
-    Writes the verification outcome and, on failure with retries remaining,
-    clears the answer so the graph can regenerate.
-
-    Parameters
-    ----------
-    state : dict
-        The current graph state.
-
-    Returns
-    -------
-    dict
-        A partial state update with verification results.
-    """
+    logger.info("Running Verifier...")
     question = str(state.get("question", ""))
     answer = str(state.get("answer", ""))
     documents = state.get("documents", []) or []
+    sources = state.get("sources", []) or []
     retry_count = int(state.get("retry_count", 0))
 
-    passed, note = verify_answer(question, answer, documents)
+    passed, note = compile_detailed_validation(question, answer, documents, sources)
 
     if passed:
-        logger.info("Verification PASSED: %s", note)
+        logger.info("Verification PASSED:\n%s", note)
         return {
             "verification": VerificationStatus.PASSED.value,
             "verification_notes": note,
             "retry_count": retry_count,
         }
 
-    logger.warning("Verification FAILED: %s", note)
+    logger.warning("Verification FAILED:\n%s", note)
 
     # If we still have retries left, clear the answer and let the graph
     # re-route to the generator. The graph checks retry_count to decide.

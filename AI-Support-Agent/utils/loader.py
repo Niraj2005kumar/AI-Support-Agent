@@ -66,6 +66,43 @@ class Document:
 # ---------------------------------------------------------------------------
 # Markdown cleaning helpers
 # ---------------------------------------------------------------------------
+def _parse_front_matter(text: str) -> tuple[str, dict[str, object]]:
+    """Strip a simple YAML front-matter block and keep its metadata."""
+    if not text.startswith("---"):
+        return text, {}
+
+    match = re.match(r"^---\s*\r?\n(.*?)\r?\n---\s*\r?\n?", text, flags=re.DOTALL)
+    if not match:
+        return text, {}
+
+    front_matter = {}
+    for line in match.group(1).splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or ":" not in stripped:
+            continue
+        key, raw_value = stripped.split(":", 1)
+        key = key.strip()
+        value = raw_value.strip()
+
+        if value.startswith("[") and value.endswith("]"):
+            inner = value[1:-1].strip()
+            items = [part.strip().strip("\"'") for part in inner.split(",") if part.strip()]
+            parsed_value = items
+        elif value.lower() in {"true", "false"}:
+            parsed_value = value.lower() == "true"
+        elif value.lower() in {"null", "none"}:
+            parsed_value = None
+        elif value.startswith(("\"", "'")) and value.endswith(("\"", "'")):
+            parsed_value = value[1:-1]
+        else:
+            parsed_value = value
+
+        front_matter[key] = parsed_value
+
+    remainder = text[match.end() :]
+    return remainder, front_matter
+
+
 def _clean_markdown(text: str) -> str:
     """
     Remove common Markdown syntax noise to produce cleaner embedding text.
@@ -80,6 +117,7 @@ def _clean_markdown(text: str) -> str:
     str
         Cleaned plain text with Markdown markers removed.
     """
+    text, _ = _parse_front_matter(text)
     # Remove code fences.
     text = re.sub(r"```[a-zA-Z]*\n?", "", text)
     # Remove inline code backticks.
@@ -126,18 +164,21 @@ def load_markdown_documents(directory: Path | None = None) -> list[Document]:
     for file_path in sorted(kb_dir.glob("*.md")):
         try:
             raw = file_path.read_text(encoding="utf-8")
-            cleaned = _clean_markdown(raw)
+            content_without_front_matter, metadata = _parse_front_matter(raw)
+            cleaned = _clean_markdown(content_without_front_matter)
             doc_id = f"md:{file_path.stem}"
+            metadata = {
+                **metadata,
+                "path": str(file_path),
+                "tags": metadata.get("tags", [file_path.stem]),
+            }
             documents.append(
                 Document(
                     id=doc_id,
                     filename=file_path.name,
                     content=cleaned,
                     source_type="md",
-                    metadata={
-                        "path": str(file_path),
-                        "tags": [file_path.stem],
-                    },
+                    metadata=metadata,
                 )
             )
             logger.debug("Loaded Markdown document: %s", file_path.name)
