@@ -37,39 +37,84 @@ from utils.prompts import build_verification_prompt
 
 logger = get_logger(__name__)
 
+_TERM_ALIASES = {
+    "admin": "admin",
+    "admins": "admin",
+    "analyst": "analyst",
+    "analysts": "analyst",
+    "change": "change",
+    "changed": "change",
+    "changes": "change",
+    "credential": "credential",
+    "credentials": "credential",
+    "export": "export",
+    "exports": "export",
+    "notice": "notice",
+    "pending": "pending",
+    "resave": "save",
+    "resaved": "save",
+    "run": "run",
+    "runs": "run",
+    "running": "run",
+    "save": "save",
+    "saved": "save",
+    "saving": "save",
+    "schedule": "schedule",
+    "schedules": "schedule",
+    "scheduled": "schedule",
+    "stop": "stop",
+    "stopped": "stop",
+    "stops": "stop",
+    "timezone": "timezone",
+    "timezones": "timezone",
+    "update": "update",
+    "updated": "update",
+    "updates": "update",
+    "updating": "update",
+    "workspace": "workspace",
+    "workspaces": "workspace",
+}
+
+
+def _normalise_term(word: str) -> str:
+    """Normalise a term so paraphrased answers still match the evidence."""
+    token = re.sub(r"[^a-z0-9]+", "", word.lower())
+    if not token:
+        return ""
+    if token in _TERM_ALIASES:
+        return _TERM_ALIASES[token]
+
+    stem = token
+    for suffix in ("ing", "ed", "es", "s"):
+        if len(stem) > len(suffix) + 2 and stem.endswith(suffix):
+            stem = stem[: -len(suffix)]
+            break
+    return _TERM_ALIASES.get(stem, stem)
+
 
 def _context_terms(documents: list[dict]) -> set[str]:
     """
     Extract a set of significant content words from the retrieved documents.
 
-    Stopwords and very common words are removed, leaving a vocabulary the
-    answer can be checked against.
-
-    Parameters
-    ----------
-    documents : list[dict]
-        Retrieved documents.
-
-    Returns
-    -------
-    set[str]
-        Lower-cased significant terms found in the context.
+    The vocabulary is normalised so paraphrased answers like "resave" vs
+    "save schedule" or "updated" vs "update" still count as grounded support.
     """
     stopwords = {
         "and", "or", "the", "a", "an", "in", "on", "of", "to", "for", "with",
         "is", "are", "was", "were", "be", "been", "can", "could", "will",
         "would", "should", "must", "you", "your", "our", "we", "they", "it",
         "this", "that", "these", "those", "has", "have", "had", "not", "no",
-        "yes", "at", "by", "from", "as", "or", "if", "then", "than", "so",
-        "about", "into", "over", "after", "before",
+        "yes", "at", "by", "from", "as", "if", "then", "than", "so",
+        "about", "into", "over", "after", "before", "still", "only",
     }
 
     terms: set[str] = set()
     for doc in documents:
         content = str(doc.get("content", ""))
-        for word in re.findall(r"[a-z][a-z0-9-]{2,}", content.lower()):
-            if word not in stopwords and len(word) > 2:
-                terms.add(word)
+        for word in re.findall(r"[a-z][a-z0-9-]{1,}", content.lower()):
+            term = _normalise_term(word)
+            if term and term not in stopwords and len(term) > 2:
+                terms.add(term)
     return terms
 
 
@@ -77,28 +122,17 @@ def _keyword_support(answer: str, documents: list[dict]) -> float:
     """
     Estimate lexical support of the answer by the context.
 
-    Returns the fraction of the answer's significant terms that appear in the
-    context vocabulary.
-
-    Parameters
-    ----------
-    answer : str
-        The generated answer.
-    documents : list[dict]
-        Retrieved documents.
-
-    Returns
-    -------
-    float
-        A support ratio in [0, 1].
+    The check uses normalised, alias-aware terms so valid paraphrases are not
+    rejected simply because they do not reuse the exact wording in the docs.
     """
     terms = _context_terms(documents)
     if not terms:
         return 0.0
 
     answer_terms = {
-        w for w in re.findall(r"[a-z][a-z0-9-]{2,}", answer.lower())
-        if len(w) > 2
+        _normalise_term(w)
+        for w in re.findall(r"[a-z][a-z0-9-]{1,}", answer.lower())
+        if _normalise_term(w)
     }
     if not answer_terms:
         return 0.0
@@ -142,9 +176,9 @@ def _llm_verdict(question: str, answer: str, documents: list[dict]) -> bool:
 def _answer_terms(answer: str) -> set[str]:
     """Return significant answer terms without stopwords or short fragments."""
     return {
-        word
-        for word in re.findall(r"[a-z][a-z0-9-]{2,}", answer.lower())
-        if len(word) > 2
+        _normalise_term(word)
+        for word in re.findall(r"[a-z][a-z0-9-]{1,}", answer.lower())
+        if _normalise_term(word) and len(_normalise_term(word)) > 2
     }
 
 
@@ -184,6 +218,20 @@ def compile_detailed_validation(
     checklist.append(
         f"- Source References Check: {'PASSED' if has_sources else 'FAILED'} "
         f"({len(sources)} source(s) referenced)"
+    )
+
+    doc_names = {
+        str(doc.get("filename", "")) if isinstance(doc, dict) else str(getattr(doc, "filename", ""))
+        for doc in documents
+    }
+    invalid_sources = [source for source in sources if source not in doc_names]
+    valid_source_membership = not invalid_sources
+    if not valid_source_membership:
+        overall_passed = False
+    checklist.append(
+        "- Source Membership Check: "
+        f"{'PASSED' if valid_source_membership else 'FAILED'}"
+        f"{'' if valid_source_membership else f' (invalid: {', '.join(invalid_sources[:8])})'}"
     )
 
     has_required_fields = bool(question and answer and sources)

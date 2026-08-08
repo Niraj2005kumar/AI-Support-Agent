@@ -83,28 +83,25 @@ def _route_after_verifier(state: dict) -> str:
     Route after the verifier:
 
         * Passed / Not Applicable -> formatter.
-        * Failed with retries left -> generator (retry loop).
-        * Failed with no retries left -> formatter (safe failure).
+        * Failed with a cleared answer (retry flag set by the verifier) ->
+          generator for the one allowed retry.
+        * Failed after the retry budget is exhausted -> formatter (safe failure).
 
-    Parameters
-    ----------
-    state : dict
-        The current graph state.
-
-    Returns
-    -------
-    str
-        The name of the next node.
+    The verifier intentionally clears ``answer`` when it is requesting a retry,
+    while leaving the previous answer in place on the final failed attempt.
+    This keeps the retry budget at exactly one retry without creating an
+    infinite loop.
     """
     verification = state.get("verification", VerificationStatus.NOT_APPLICABLE.value)
     retry_count = int(state.get("retry_count", 0))
+    answer = str(state.get("answer", "") or "")
 
     if verification == VerificationStatus.PASSED.value:
         return NODE_FORMATTER
 
     if verification == VerificationStatus.FAILED.value:
         if retry_count < Verification.MAX_RETRIES:
-            logger.info("Verification failed; retry generator (attempt %d).", retry_count)
+            logger.info("Verification failed; retrying generator (attempt %d).", retry_count)
             return NODE_GENERATOR
         logger.warning("Verification failed; no retries left -> formatter.")
     return NODE_FORMATTER

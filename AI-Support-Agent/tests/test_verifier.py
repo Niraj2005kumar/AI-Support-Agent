@@ -10,6 +10,7 @@ can be tested directly.
 
 from __future__ import annotations
 
+from nodes.generator import generate_answer_for_question
 from nodes.verifier import _keyword_support, verify_answer
 
 
@@ -46,6 +47,31 @@ class TestVerifyAnswer:
         answer = "SpaceX will launch a rocket to Mars next Tuesday."
         passed, _note = verify_answer("What is the capital of France?", answer, sample_documents)
         assert passed is False
+
+    def test_short_valid_answer_is_not_rejected(self, sample_documents, monkeypatch) -> None:
+        documents = [
+            {
+                "filename": "03_scheduled_exports.md",
+                "content": (
+                    "Changing the workspace timezone does not immediately rewrite existing recurring "
+                    "export schedules. Existing schedules retain the timezone stored when they were "
+                    "last saved and display a Timezone update pending notice. To apply the new "
+                    "workspace timezone to an existing recurring schedule: open the schedule, review the "
+                    "displayed next-run time, select Save schedule, and confirm the notice disappears."
+                ),
+                "score": 0.91,
+                "metadata": {"path": "03_scheduled_exports.md"},
+            }
+        ]
+
+        monkeypatch.setattr("nodes.generator.generate_answer", lambda _prompt: "Resave the schedule.")
+
+        answer = generate_answer_for_question(
+            "My scheduled exports stopped after changing workspace timezone.",
+            documents,
+        )
+
+        assert answer == "Resave the schedule."
 
     def test_empty_answer_fails(self, sample_documents) -> None:
         passed, note = verify_answer("question", "", sample_documents)

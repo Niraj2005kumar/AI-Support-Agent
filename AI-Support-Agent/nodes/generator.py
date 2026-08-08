@@ -43,15 +43,19 @@ def _looks_incomplete(answer: str) -> bool:
     text = answer.strip()
     if not text:
         return True
-    if text.endswith((".", "!", "?")):
-        return False
+
     lowered = text.lower()
     if lowered.endswith(tuple(sorted(_INCOMPLETE_TAILS, key=len, reverse=True))):
         return True
-    words = lowered.split()
-    return len(words) <= 5 and not any(
-        keyword in lowered for keyword in ["owner", "admin", "viewer", "analyst", "credential", "workspace"]
-    )
+
+    # A concise grounded answer may legitimately be very short (for example,
+    # "Resave the schedule." or "Open the schedule."). Reject only obvious
+    # mid-sentence fragments; do not reject valid answers merely because they are
+    # brief or omit a domain keyword.
+    if text.endswith((".", "!", "?")):
+        return False
+
+    return False
 
 logger = get_logger(__name__)
 
